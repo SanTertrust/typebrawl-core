@@ -82,8 +82,23 @@ export class Bytestream {
 
     public readBoolean(): boolean {
         let number = this.buffer.readInt8()
-        this.buffer.slice(1)
+        this.buffer = this.buffer.slice(1)
         return number === 1
+    }
+
+    public writeLong(v1: number, v2: number): void {
+        let buffer = Buffer.alloc(8)
+        buffer.writeUInt32BE(v1)
+        buffer.writeUInt32BE(v2)
+        this.buffer = Buffer.concat([this.buffer, buffer])
+    }
+
+    public readLong(): number[]{
+        const v1 = this.buffer.readInt32BE()
+        this.buffer = this.buffer.slice(4)
+        const v2 = this.buffer.readInt32BE()
+        this.buffer = this.buffer.slice(4)
+        return [v1, v2]
     }
 
     public decode(): void {
