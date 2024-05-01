@@ -5,16 +5,14 @@ export class Bytestream {
     public version: number
     public id: number
     public length: number // used when decoding packet
-    constructor(data: Buffer | undefined, version: number, id: number) {
-        if (data != null) {
-            this.buffer = data
-        } else {
-            this.buffer = Buffer.alloc(0)
-        }
+    public bitOffset: number
 
+    constructor(data: Buffer | void, version: number, id: number) {
+        this.buffer = data || Buffer.alloc(0)
         this.version = version
         this.id = id
         this.length = 0
+        this.bitOffset = 0
     }
 
     // reading string from bytes
@@ -93,12 +91,86 @@ export class Bytestream {
         this.buffer = Buffer.concat([this.buffer, buffer])
     }
 
-    public readLong(): number[]{
+    public readLong(): number[] {
         const v1 = this.buffer.readInt32BE()
         this.buffer = this.buffer.slice(4)
         const v2 = this.buffer.readInt32BE()
         this.buffer = this.buffer.slice(4)
         return [v1, v2]
+    }
+
+    public writeByte(byte: number): void {
+        const newBuffer = Buffer.alloc(1)
+        newBuffer.writeUInt8(byte, 0)
+        this.buffer = Buffer.concat([this.buffer, newBuffer])
+    }
+
+    // from nodebrawl-core
+    public writeVInt(value: number): number {
+        this.bitOffset = 0
+        let temp: number = (value >> 25) & 0x40
+
+        let flipped: number = value ^ (value >> 31)
+
+        temp |= value & 0x3F
+
+        value >>= 6
+        flipped >>= 6
+
+        if (flipped === 0) {
+            this.writeByte(temp)
+            return 0
+        }
+
+        this.writeByte(temp | 0x80)
+
+        flipped >>= 7
+        let r: number = 0
+
+        if (flipped) { r = 0x80 }
+
+        this.writeByte((value & 0x7F) | r)
+
+        value >>= 7
+
+        while (flipped !== 0) {
+            flipped >>= 7
+            r = 0
+            if (flipped) { r = 0x80 }
+            this.writeByte((value & 0x7F) | r)
+            value >>= 7
+        }
+        return 0
+    }
+
+    // from nodebrawl-core
+    public readVInt(): number {
+        let result = 0
+        let shift = 0
+        let s = 0
+        let a1 = 0
+        let a2 = 0
+
+        while (true) {
+            let byte = this.buffer[0]
+            this.buffer = this.buffer.slice(1)
+
+            if (shift == 0) {
+                a1 = (byte & 0x40) >> 6
+                a2 = (byte & 0x80) >> 7
+                s = (byte << 1) & ~0x181
+                byte = s | (a2 << 7) | a1
+            }
+
+            result |= (byte & 0x7F) << shift
+            shift += 7
+
+            if ((byte & 0x80) === 0) {
+                break
+            }
+        }
+
+        return (result >> 1) ^ (-(result & 1))
     }
 
     public decode(): void {
