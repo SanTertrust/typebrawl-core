@@ -19,6 +19,9 @@ export class Bytestream {
     public readString(): string {
         let lengthString: number = this.buffer.readUint32BE()
         this.buffer = this.buffer.slice(4)
+        if (lengthString < 0) {
+            return ""
+        }
         let string: string = this.buffer.toString("utf-8", 0, lengthString)
         this.buffer = this.buffer.slice(lengthString)
 
@@ -26,13 +29,17 @@ export class Bytestream {
     }
 
     // writing string length + string to bytes
-    public writeString(text: string): void {
-        let lengthBuffer = Buffer.alloc(4)
-        lengthBuffer.writeUInt32BE(text.length)
-        let textBuffer = Buffer.from(text, "utf-8")
-        let LenandTextBuffer = Buffer.concat([lengthBuffer, textBuffer])
-        this.buffer = Buffer.concat([this.buffer, LenandTextBuffer])
-        return
+    public writeString(text?: string | undefined): void {
+        if (text == null) {
+            this.writeInt(-1)
+        } else {
+            let lengthBuffer = Buffer.alloc(4)
+            lengthBuffer.writeUInt32BE(text.length)
+            let textBuffer = Buffer.from(text, "utf-8")
+            let LenandTextBuffer = Buffer.concat([lengthBuffer, textBuffer])
+            this.buffer = Buffer.concat([this.buffer, LenandTextBuffer])
+        }
+
     }
 
     // writing number to bytes as 32 bit number
@@ -171,6 +178,23 @@ export class Bytestream {
         }
 
         return (result >> 1) ^ (-(result & 1))
+    }
+
+    public writeDataReference(v1: number, v2: number): void {
+        if (v1 != 0) {
+            this.writeVInt(v1)
+            this.writeVInt(v2)
+        } else {
+            this.writeVInt(0)
+        }
+    }
+
+    public readDataReference(): number[] {
+        return [this.readVInt(), this.readVInt()]
+    }
+
+    public size(): number {
+        return this.buffer.length
     }
 
     public decode(): void {
