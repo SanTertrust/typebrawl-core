@@ -193,6 +193,13 @@ export class Bytestream {
         return [this.readVInt(), this.readVInt()]
     }
 
+    public writeArrayVint(data: number[]): void {
+        this.writeVInt(data.length)
+        data.forEach((x) => {
+            this.writeVInt(x)
+        })
+    }
+
     public size(): number {
         return this.buffer.length
     }
@@ -203,8 +210,6 @@ export class Bytestream {
         this.buffer = this.buffer.slice(3)
         this.version = this.readShort()
         //this.buffer = this.buffer.slice(0, this.length) who cares
-
-        console.log(this.buffer)
     }
 
     public send(socket: Socket): void {
@@ -214,5 +219,6 @@ export class Bytestream {
         headerBuffer.writeUInt16BE(this.version, 5)
         this.buffer = Buffer.concat([headerBuffer, this.buffer, Buffer.from([0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00])])
         socket.write(this.buffer)
+        console.log(`[SERVER] ${this.id} was sended.`)
     }
 }
